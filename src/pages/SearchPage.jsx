@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { products } from '../data/products.js';
+import { getProducts } from '../data/catalog.js';
 import { searchProducts } from '../lib/search.js';
 import { SORTS, sortProducts } from '../lib/collectionFilters.js';
 import { ProductCard } from '../components/Shell.jsx';
@@ -31,6 +31,6 @@ export default function SearchPage() {
     </div>}
     {q && results.length > 0 && <div className="ov-product-grid">{results.map((product) => <ProductCard key={product.id} product={product} />)}</div>}
     {q && results.length === 0 && <EmptyState title={`No results for “${q}”.`} actions={<><Link to="/shop/watches" className="ov-button ov-button-dark">Watches</Link><Link to="/shop/quarter-zips" className="ov-button ov-button-light">Quarter zips</Link></>}>Check the spelling, or try a broader word such as “watch”, “navy” or “black”.</EmptyState>}
-    {!q && <section aria-labelledby="ov-suggest"><h2 id="ov-suggest">Featured products</h2><div className="ov-product-grid">{products.slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />)}</div></section>}
+    {!q && <section aria-labelledby="ov-suggest"><h2 id="ov-suggest">Featured products</h2><div className="ov-product-grid">{getProducts().slice(0, 4).map((product) => <ProductCard key={product.id} product={product} />)}</div></section>}
   </main>;
 }

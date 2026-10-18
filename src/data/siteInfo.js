@@ -9,7 +9,7 @@
 const safeEndpoint = (value) => {
   try {
     const url = new URL(value);
-    const local = import.meta.env.DEV && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
+    const local = import.meta.env?.DEV && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
     return url.protocol === 'https:' || (local && url.protocol === 'http:') ? url.href : null;
   } catch { return null; }
 };
@@ -20,7 +20,7 @@ export const siteInfo = {
     phone: null,
     whatsapp: null,
     instagram: null,
-    formEndpoint: safeEndpoint(import.meta.env.VITE_CONTACT_FORM_ENDPOINT),
+    formEndpoint: safeEndpoint(import.meta.env?.VITE_CONTACT_FORM_ENDPOINT),
   },
 };
 

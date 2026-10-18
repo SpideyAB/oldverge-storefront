@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_OPTIONS, formatPrice } from '../lib/money.js';
 import { allOrders, orderSummary, useStore } from '../store.js';
-import { products } from '../data/products.js';
+import { getProducts } from '../data/catalog.js';
 import { DemoNotice, EMAIL_PATTERN, Field, InfoSection, PageHead } from '../components/ui.jsx';
 import Reveal from '../components/Reveal.jsx';
 
@@ -92,7 +92,7 @@ export function ReturnsPage() {
         : <form className="ov-form" onSubmit={submit} noValidate>
           <Field label="Order number" hint={`For example ${orders[0]?.id || 'OV-DEMO-1001'}`} {...bind('order')} />
           <Field label="Email" type="email" autoComplete="email" {...bind('email')} />
-          <Field label="Item" as="select" {...bind('item')}><option value="">Select an item</option>{products.map((product) => <option key={product.id} value={product.name}>{product.name}</option>)}</Field>
+          <Field label="Item" as="select" {...bind('item')}><option value="">Select an item</option>{getProducts().map((product) => <option key={product.id} value={product.name}>{product.name}</option>)}</Field>
           <Field label="What would you like to do, and why?" as="textarea" {...bind('reason')} />
           <button type="submit" className="ov-button ov-button-dark">Preview return request</button>
         </form>}

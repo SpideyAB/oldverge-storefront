@@ -3,7 +3,7 @@ import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
-  { ignores: ['dist/', 'node_modules/', 'coverage/'] },
+  { ignores: ['dist/', 'node_modules/', 'coverage/', 'supabase/functions/**/*.ts'] },   // Deno entrypoints (no TypeScript parser configured)
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],
@@ -25,7 +25,7 @@ export default [
     },
   },
   {
-    files: ['*.config.js', 'scripts/**/*.{js,mjs}'],
+    files: ['*.config.js', 'scripts/**/*.{js,mjs}', 'supabase/**/*.{js,mjs}'],
     languageOptions: { globals: { ...globals.node } },
   },
   {

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { productBySlug } from './data/products.js';
+import { catalogReady, productBySlug } from './data/catalog.js';
+import { variantFor } from './data/catalogMapper.js';
 import { MAX_QTY, computeTotals } from './lib/money.js';
 import { SAMPLE_ADDRESSES, SAMPLE_ORDERS } from './data/sampleCustomer.js';
 
@@ -46,11 +47,43 @@ export function sanitizeLines(raw) {
   return [...merged.values()];
 }
 
+/** Shape-only cleaning, used while the catalogue has not loaded yet (backend mode). Product checks happen in reconcileLines. */
+export function structuralLines(raw) {
+  if (!Array.isArray(raw)) return [];
+  const merged = new Map();
+  raw.forEach((entry) => {
+    if (!entry || typeof entry !== 'object') return;
+    const productId = entry.productId ?? entry.slug ?? entry.id;
+    if (typeof productId !== 'string' || !productId) return;
+    const size = typeof entry.size === 'string' ? entry.size : '';
+    const color = typeof entry.color === 'string' ? entry.color : '';
+    const key = lineKey(productId, size, color);
+    const quantity = clampQty(entry.quantity);
+    const existing = merged.get(key);
+    merged.set(key, existing ? { ...existing, quantity: clampQty(existing.quantity + quantity) } : { key, productId, size, color, quantity });
+  });
+  return [...merged.values()];
+}
+
+/** Strict reconciliation against the loaded catalogue: unknown products or options are removed, never silently changed. */
+export function reconcileLines(lines) {
+  const kept = []; const removed = [];
+  (lines || []).forEach((line) => {
+    const product = productBySlug(line.productId);
+    const validSize = product && product.sizes.includes(line.size);
+    const validColor = product && (!line.color || product.colors.includes(line.color));
+    const available = product && validSize && validColor && variantStatus(product, line.size) !== 'sold-out';
+    if (available) kept.push({ ...line, quantity: clampQty(line.quantity) });
+    else removed.push({ productId: line.productId, name: product?.name || line.productId, reason: !product ? 'no_longer_sold' : !validSize || !validColor ? 'option_unavailable' : 'sold_out' });
+  });
+  return { kept, removed };
+}
+
 export function resolveLines(lines) {
   return (lines || []).map((line) => {
     const product = productBySlug(line.productId ?? line.slug);
     if (!product) return null;
-    const unitPrice = product.price;
+    const unitPrice = variantFor(product, line.size, line.color)?.price ?? product.price;
     const quantity = clampQty(line.quantity);
     return { key: lineKey(product.id, line.size, line.color), product, size: line.size, color: line.color, quantity, unitPrice, lineTotal: unitPrice * quantity };
   }).filter(Boolean);
@@ -81,6 +114,7 @@ export const useStore = create(persist((set, get) => ({
   cartOpen: false,
   directItem: null,       // the single item of a "Buy now" checkout; separate from the cart
   announcement: '',       // polite live-region message for cart changes and feedback
+  cartNotice: '',         // why lines were removed when the cart was checked against the current catalogue
   lastOrder: null,        // memory only: contact and address details are never persisted
   orders: [],             // demo orders placed in this tab, memory only
   customer: readCustomer(),
@@ -92,6 +126,18 @@ export const useStore = create(persist((set, get) => ({
     window.clearTimeout(announceTimer);
     announceTimer = window.setTimeout(() => set({ announcement: '' }), 4000);
   },
+  // After the catalogue loads (backend mode): drop lines that are no longer sold and say why. Prices are never stored.
+  reconcileCart: () => {
+    const { kept, removed } = reconcileLines(get().cart);
+    const direct = get().directItem ? reconcileLines([get().directItem]) : null;
+    if (!removed.length && !(direct && direct.removed.length)) return;
+    const names = [...removed, ...(direct ? direct.removed : [])].map((item) => item.name);
+    set({
+      cart: kept, directItem: direct && direct.kept.length ? direct.kept[0] : null,
+      cartNotice: `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} no longer available and ${names.length === 1 ? 'was' : 'were'} removed from your bag.`,
+    });
+  },
+  dismissCartNotice: () => set({ cartNotice: '' }),
   openCart: () => set({ cartOpen: true }),
   closeCart: () => set({ cartOpen: false }),
 
@@ -138,6 +184,8 @@ export const useStore = create(persist((set, get) => ({
   },
 
   // A direct purchase leaves the cart alone; a cart checkout buys (and so clears) every cart line.
+  // Backend checkout finished: the order exists on the server, so nothing about it is kept in this store.
+  finishCheckout: (source) => set((state) => ({ cart: source === 'cart' ? [] : state.cart, directItem: null })),
   completeOrder: (order, source) => set((state) => ({
     orders: [order, ...state.orders],
     lastOrder: order,
@@ -170,9 +218,11 @@ export const useStore = create(persist((set, get) => ({
   partialize: (state) => ({ cart: state.cart, directItem: state.directItem, recentSearches: state.recentSearches }),
   merge: (persisted, current) => {
     const saved = persisted && typeof persisted === 'object' ? persisted : {};
-    const direct = sanitizeLines(saved.directItem ? [saved.directItem] : [])[0] || null;
+    // Before the catalogue has loaded (backend mode) only the shape can be checked; reconcileCart validates products later.
+    const clean = catalogReady() ? sanitizeLines : structuralLines;
+    const direct = clean(saved.directItem ? [saved.directItem] : [])[0] || null;
     const recent = Array.isArray(saved.recentSearches) ? saved.recentSearches.filter((item) => typeof item === 'string').slice(0, 5) : [];
-    return { ...current, cart: sanitizeLines(saved.cart), directItem: direct, recentSearches: recent };
+    return { ...current, cart: clean(saved.cart), directItem: direct, recentSearches: recent };
   },
 }));
 

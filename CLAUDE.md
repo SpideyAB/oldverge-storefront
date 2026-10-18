@@ -19,7 +19,7 @@ OLDVERGE is a watch and menswear brand (Pakistan, prices in PKR). This repo is a
 - Motion: `framer-motion` 12 (carousel/hero). Smooth scrolling is `lenis` (one instance in `SmoothScroll.jsx`, `autoRaf`, touch stays native, off under reduced motion). Entrance reveals are `Reveal.jsx`.
 - Icons: `lucide-react`.
 - Styling: **hand-written CSS**: `src/styles.css` (small legacy base), `src/home.css` (current design), `src/store.css` (shop journey). Tailwind 3.4 + PostCSS are installed and only `@tailwind base` is loaded (Preflight, the base reset the layout relies on). **No Tailwind utility classes are used.** Do not write Tailwind utilities, and do not remove the directives, without agreeing it first (see `docs/code-audit.md`).
-- No backend, database, auth, payment or email integration. The only network call is the optional contact form POST. The only env variable read is `VITE_CONTACT_FORM_ENDPOINT` (see `.env.example`).
+- Backend: Supabase (see Backend section). Env vars read: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, optional `VITE_CONTACT_FORM_ENDPOINT` (demo mode only). See `.env.example`.
 - Quality gates: `npm run lint` (ESLint flat config), `npm test` (Vitest, unit tests for money, filters and store), `npm run build`. CI: `.github/workflows/ci.yml`.
 
 ## Commands
@@ -67,8 +67,11 @@ OLDVERGE is a watch and menswear brand (Pakistan, prices in PKR). This repo is a
 ## Design skills (local, not in this repo)
 - The owner's `Downloads/oldv/.claude/skills/` holds UI UX Pro Max and context-engineering skills. Their suggestions never override the OLDVERGE identity: the "Liquid Glass" style recommendation was rejected as not minimal.
 
-## Backend (not built yet)
-- The Supabase commerce backend is a separate, later phase driven by its own brief. Until that phase starts, do not add Supabase, a database, API calls, real auth or extra backend packages. Keep `.env.example` names only.
+## Backend (Supabase, branch `feature/supabase-backend`)
+- Two explicit modes (`src/lib/config.js`): demo when `VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY` are unset (the sample storefront described below), backend when both are set. Backend failures show an error state and never fall back to sample data.
+- Schema/RLS in `supabase/migrations`, Edge Functions in `supabase/functions`, DB tests `npm run test:db` (embedded Postgres). Admin at `/admin` (`src/admin`, lazy chunk).
+- Docs: `docs/backend-architecture.md`, `backend-security.md`, `supabase-setup.md`, `vercel-supabase-deployment.md`, `frontend-backend-map.md`, `admin-owner-guide.md`, `commerce-operations.md`, `backend-verification.md`. Brain snapshot: `docs/brain/` (export only; edit `../brain/`).
+- `ordering_enabled` stays false until the owner approves selling. Secrets only in Supabase secrets, never `VITE_*`.
 
 ## Storefront journey (owner-approved demo, 2026-10-17)
 Frontend only: no real payment, orders, email or auth.

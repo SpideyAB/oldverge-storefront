@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, RotateCcw } from 'lucide-react';
 import { QUARTER_ZIP_VARIANT_PHOTOS } from '../data/quarterZipVariants.js';
 import Reveal from './Reveal.jsx';
+import { siteImage, useSite } from '../data/site.js';
 
 /**
  * Interactive colour explorer for the quarter-zip section.
@@ -86,6 +87,8 @@ function Garment({ color, hex, slug }) {
 }
 
 export default function ColorExplorer({ colors }) {
+  useSite((state) => state.siteImages);
+  const baseImage = siteImage('quarter-zip-beige');
   const [hovered, setHovered] = useState(null);
   const [focused, setFocused] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -178,7 +181,7 @@ export default function ColorExplorer({ colors }) {
       </Reveal>
 
       <Reveal className="ov-color-image ov-cx-visual" delay={0.1} onPointerEnter={(event) => { if (event.pointerType !== 'touch') clearHold(); }} onPointerLeave={(event) => { if (event.pointerType !== 'touch') { clearHold(); setHeld(null); } }}>
-        <img className="ov-cx-base" src="/images/quarter-zip-beige.jpg" alt="Model wearing a light quarter-zip sweater" loading="lazy" />
+        {baseImage && <img className="ov-cx-base" src={baseImage.src} alt={baseImage.alt} loading="lazy" />}
         <div className={`ov-cx-over${active ? ' is-on' : ''}`} role="group" aria-label="Quarter-zip colour display">
           {colors.map((color) => (
             <figure key={color.name} className={`ov-cx-tile${active?.name === color.name ? ' is-active' : ''}`} aria-hidden={active?.name === color.name ? undefined : 'true'}>

@@ -1,5 +1,5 @@
 import { categoryLabel } from '../data/collections.js';
-import { products } from '../data/products.js';
+import { getProducts } from '../data/catalog.js';
 
 // Matches every word of the query against the product's own data (name, brand, category, style, colours, description).
 const haystack = (product) => [product.name, product.brand, product.category, categoryLabel(product.category), product.style, product.colors.join(' '), product.description]
@@ -12,4 +12,4 @@ export const matchesQuery = (product, query) => {
   return words.every((word) => text.includes(word));
 };
 
-export const searchProducts = (query, list = products) => list.filter((product) => matchesQuery(product, query));
+export const searchProducts = (query, list = getProducts()) => list.filter((product) => matchesQuery(product, query));

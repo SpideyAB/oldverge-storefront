@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Instagram, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
-import { siteInfo } from '../data/siteInfo.js';
+import { contactInfo, useSite } from '../data/site.js';
 import ContactForm from '../components/ContactForm.jsx';
 import Reveal from '../components/Reveal.jsx';
 import { DemoNotice } from '../components/ui.jsx';
@@ -8,14 +8,15 @@ import { DemoNotice } from '../components/ui.jsx';
 // Contact details come only from data/siteInfo.js. Nothing is invented: a channel OLDVERGE has not published
 // is described as not yet available, and the form is a labelled demo until an endpoint is configured.
 export default function ContactPage() {
-  const { email, phone, whatsapp, instagram, formEndpoint } = siteInfo.contact;
+  useSite((state) => state.settings);
+  const { email, phone, whatsapp, instagram, connected } = contactInfo();
   const message = [
     email && { key: 'email', icon: Mail, label: email, href: `mailto:${email}` },
     whatsapp && { key: 'whatsapp', icon: MessageCircle, label: `WhatsApp ${whatsapp}`, href: `https://wa.me/${whatsapp.replace(/\D/g, '')}` },
     instagram && { key: 'instagram', icon: Instagram, label: 'Message us on Instagram', href: instagram, external: true },
   ].filter(Boolean);
   const call = phone ? { icon: Phone, label: phone, href: `tel:${phone.replace(/\s/g, '')}` } : null;
-  const none = !message.length && !call && !formEndpoint;
+  const none = !message.length && !call && !connected;
   const link = ({ key, icon: Icon, label, href, external }) => <li key={key || label}><a href={href} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}><Icon size={16} aria-hidden="true" />{label}</a></li>;
 
   return <main id="main-content" className="ov-page ov-contact">
@@ -25,7 +26,7 @@ export default function ContactPage() {
     </Reveal>
     {none && <DemoNotice>Draft placeholder. OLDVERGE has not published contact details yet, so the form below is a layout preview.</DemoNotice>}
     <div className="ov-contact-grid">
-      <Reveal className="ov-contact-formwrap"><ContactForm endpoint={formEndpoint} /></Reveal>
+      <Reveal className="ov-contact-formwrap"><ContactForm /></Reveal>
       <Reveal className="ov-contact-info" delay={0.1}>
         <section aria-labelledby="ov-ci-chat">
           <h2 id="ov-ci-chat">Message us</h2>

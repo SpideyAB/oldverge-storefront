@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Search, X } from 'lucide-react';
 import { COLLECTIONS } from '../data/collections.js';
-import { products } from '../data/products.js';
+import { getProducts } from '../data/catalog.js';
 import { formatPrice } from '../lib/money.js';
 import { imageSize } from '../data/imageSizes.js';
 import { searchProducts } from '../lib/search.js';
@@ -54,7 +54,7 @@ export default function SearchPanel({ open, onClose }) {
             <ul className="ov-search-links">
               <li><Link to={COLLECTIONS.watches.path} onClick={onClose}>Watches</Link></li>
               <li><Link to={COLLECTIONS['quarter-zips'].path} onClick={onClose}>Quarter zips</Link></li>
-              <li><Link to={COLLECTIONS.all.path} onClick={onClose}>All products ({products.length})</Link></li>
+              <li><Link to={COLLECTIONS.all.path} onClick={onClose}>All products ({getProducts().length})</Link></li>
             </ul>
           </>}
       </div>

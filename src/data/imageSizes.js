@@ -1,5 +1,6 @@
-// Intrinsic pixel sizes of the photos in /public/images, so <img> elements can
-// reserve their space before loading. Add an entry when a photo is added.
+// Intrinsic pixel sizes of images, so <img> elements can reserve their space before loading.
+// Demo mode: the static table below (photos in /public/images). Backend mode: sizes come from the
+// product_images / site_images rows and are registered at runtime with registerImageSize().
 export const IMAGE_SIZES = {
   '/images/oldverge-hero-model.jpg': [1200, 1500],
   '/images/oldverge-hero-watch-detail.jpg': [1200, 800],
@@ -31,7 +32,13 @@ export const IMAGE_SIZES = {
   '/images/quarter-zip-soft-knit-cutout.webp': [960, 1200],
 };
 
+const runtime = new Map();
+
+export const registerImageSize = (src, width, height) => {
+  if (src && width > 0 && height > 0) runtime.set(src, [width, height]);
+};
+
 export const imageSize = (src) => {
-  const size = IMAGE_SIZES[src];
+  const size = runtime.get(src) || IMAGE_SIZES[src];
   return size ? { width: size[0], height: size[1] } : {};
 };

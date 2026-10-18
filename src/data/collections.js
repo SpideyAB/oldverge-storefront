@@ -1,4 +1,4 @@
-import { products } from './products.js';
+import { getProducts } from './catalog.js';
 
 // Single source for collection routes, display names, brand identifiers and
 // the header navigation. Routes stay /shop, /shop/watches, /shop/quarter-zips;
@@ -28,7 +28,7 @@ export const brandId = (product) => slugify(product.brand);
 // from the real catalogue, so a requested brand without listings shows 0.
 export const watchBrandOptions = () => {
   const counts = new Map();
-  products.filter((product) => product.type === 'watch').forEach((product) => {
+  getProducts().filter((product) => product.type === 'watch').forEach((product) => {
     const id = brandId(product);
     const entry = counts.get(id) || { id, name: product.brand, count: 0 };
     entry.count += 1;
@@ -52,7 +52,7 @@ export const COLLECTIONS = {
 
 export const collectionForCategory = (category) => (category ? COLLECTIONS[String(category).toLowerCase()] || null : COLLECTIONS.all);
 export const collectionForProduct = (product) => (product.category === 'Watches' ? COLLECTIONS.watches : COLLECTIONS['quarter-zips']);
-export const collectionProducts = (collection) => (collection.category ? products.filter((product) => product.category === collection.category) : products);
+export const collectionProducts = (collection) => (collection.category ? getProducts().filter((product) => product.category === collection.category) : getProducts());
 
 export const NAV_GROUPS = [
   {

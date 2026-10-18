@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AlignLeft, ChevronDown, CircleUserRound, Instagram, Search, ShoppingBag, ShoppingCart, Store, X } from 'lucide-react';
-import { siteInfo } from '../data/siteInfo.js';
-import { EMAIL_PATTERN } from './ui.jsx';
+import { contactInfo, footerNotice, getPolicies, useSite } from '../data/site.js';
+import { NEWSLETTER_CONSENT, useNewsletter } from '../lib/newsletter.js';
+import { isBackend } from '../lib/config.js';
+import { useAuth } from '../lib/auth.js';
 import { formatPrice } from '../lib/money.js';
 import { NAV_GROUPS } from '../data/collections.js';
-import { POLICIES, policyPath } from '../data/policies.js';
+import { policyPath } from '../data/policies.js';
 import ProductArt from './ProductArt.jsx';
 import CartDrawer from './CartDrawer.jsx';
 import SearchPanel from './SearchPanel.jsx';
@@ -62,7 +64,9 @@ export function Header() {
   useDialogFocus(menu, () => setMenu(false));
   const cart = useStore((state) => state.cart);
   const openCart = useStore((state) => state.openCart);
-  const customer = useStore((state) => state.customer);
+  const demoCustomer = useStore((state) => state.customer);
+  const signedIn = useAuth((state) => state.status === 'signed-in');
+  const customer = isBackend ? signedIn : demoCustomer;
   const count = cartCount(cart);
   const [bagWobble, setBagWobble] = useState(false);
   const previousCount = useRef(count);
@@ -121,7 +125,7 @@ export function Header() {
           </div>; })}
           {[['/about', 'Our story'], ['/faq', 'FAQ'], ['/search', 'Search'], [customer ? '/account' : '/account/login', customer ? 'Your account' : 'Sign in']].map(([to, label]) => <div className="ov-mm-group" key={to}><div className="ov-mm-row"><Link to={to} onClick={() => setMenu(false)}>{label}</Link></div></div>)}
         </nav>
-        <p className="ov-mm-note">Displayed prices are samples. Orders are not open yet.</p>
+        <p className="ov-mm-note">{footerNotice()}</p>
       </aside>
     </div>, document.body)}
     <SearchPanel open={searchOpen} onClose={() => setSearchOpen(false)} />
@@ -135,47 +139,42 @@ export function Header() {
   </>;
 }
 
-// Footer sign-up: validates locally, shows a simulated result. No mailing list exists and nothing is saved.
+// Footer sign-up. Backend mode saves a subscription with explicit consent; demo mode simulates the result.
 function FooterNewsletter() {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
-  const submit = (event) => {
-    event.preventDefault();
-    if (!email.trim()) { setError('Enter your email address.'); return; }
-    if (!EMAIL_PATTERN.test(email.trim())) { setError('Enter a valid email address, like name@example.com.'); return; }
-    setError('');
-    setDone(true);
-  };
+  useSite((state) => state.settings);
+  const news = useNewsletter('footer');
   return <div className="ov-footer-news">
     <h3>Subscribe to our newsletter</h3>
-    {done ? <p className="ov-footer-news-done" role="status">Demo only: nothing was saved and no email will be sent.</p>
-      : <form onSubmit={submit} noValidate>
+    {news.status === 'done' ? <p className="ov-footer-news-done" role="status">{news.backend ? 'Thank you, your address has been saved.' : 'Demo only: nothing was saved and no email will be sent.'}</p>
+      : <form onSubmit={news.submit} noValidate>
         <label className="ov-sr-only" htmlFor="ov-footer-email">Email address</label>
-        <input id="ov-footer-email" type="email" autoComplete="email" placeholder="Email" value={email} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'ov-footer-email-error' : undefined} onChange={(event) => { setEmail(event.target.value); setError(''); }} />
-        {error && <p className="ov-footer-news-error" id="ov-footer-email-error">{error}</p>}
-        <button type="submit">Subscribe</button>
+        <input id="ov-footer-email" type="email" autoComplete="email" placeholder="Email" value={news.email} aria-invalid={news.error ? 'true' : undefined} aria-describedby={news.error ? 'ov-footer-email-error' : undefined} onChange={(event) => news.setEmail(event.target.value)} />
+        {news.backend && <label className="ov-news-consent"><input type="checkbox" checked={news.consent} onChange={(event) => news.setConsent(event.target.checked)} /> <span>{NEWSLETTER_CONSENT}</span></label>}
+        {news.error && <p className="ov-footer-news-error" id="ov-footer-email-error" role="alert">{news.error}</p>}
+        <button type="submit" disabled={news.status === 'sending'}>{news.status === 'sending' ? 'Saving…' : 'Subscribe'}</button>
       </form>}
-    <p className="ov-footer-news-note">Hear when ordering opens. This form is a demo and is not connected to a mailing list.</p>
+    {!news.backend && <p className="ov-footer-news-note">This form is a demo and is not connected to a mailing list.</p>}
   </div>;
 }
 
 export function Footer() {
-  const { instagram } = siteInfo.contact;
+  useSite((state) => state.policies);
+  useSite((state) => state.settings);
+  const { instagram } = contactInfo();
   return <footer className="site-footer ov-footer">
     <Reveal className="footer-top">
       <div className="ov-footer-cols">
         <div className="ov-footer-col"><Link to="/" className="wordmark" aria-label="OldVerge home">OLD<span>VERGE</span><b>®</b></Link></div>
         <nav className="ov-footer-col" aria-label="Shop and help"><h3>Shop</h3><Link to="/shop">All products</Link><Link to="/shop/watches">Watches</Link><Link to="/shop/quarter-zips">Clothes</Link><Link to="/search">Search</Link></nav>
         <nav className="ov-footer-col" aria-label="Help"><h3>Help</h3><Link to="/faq">FAQ</Link><Link to="/pages/shipping">Shipping &amp; delivery</Link><Link to="/pages/returns">Returns &amp; exchanges</Link><Link to="/pages/track-order">Track an order</Link><Link to="/contact">Contact</Link></nav>
-        <nav className="ov-footer-col" aria-label="Useful links"><h3>Useful Links</h3><Link to="/about">Our story</Link>{POLICIES.map((policy) => <Link key={policy.slug} to={policyPath(policy)}>{policy.title}</Link>)}
+        <nav className="ov-footer-col" aria-label="Useful links"><h3>Useful Links</h3><Link to="/about">Our story</Link>{getPolicies().map((policy) => <Link key={policy.slug} to={policyPath(policy)}>{policy.title}</Link>)}
           {instagram && <><h3 className="ov-footer-sub">Social Media</h3><a href={instagram} target="_blank" rel="noreferrer" aria-label="OLDVERGE on Instagram" className="ov-footer-social"><Instagram size={20} aria-hidden="true" /></a></>}
         </nav>
       </div>
       <FooterNewsletter />
     </Reveal>
     <Reveal className="ov-footer-end" delay={0.1}>
-      <p className="ov-footer-disclosure">Displayed prices are samples. Orders are not open yet.</p>
+      <p className="ov-footer-disclosure">{footerNotice()}</p>
       <p className="ov-footer-copy">© OLDVERGE 2026 · Pakistan</p>
     </Reveal>
   </footer>;

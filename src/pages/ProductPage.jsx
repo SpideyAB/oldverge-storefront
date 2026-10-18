@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
-import { products, productBySlug } from '../data/products.js';
+import { getProducts, productBySlug } from '../data/catalog.js';
 import { crumbsFor } from '../data/collections.js';
 import { imageSize } from '../data/imageSizes.js';
 import { galleryFor } from '../data/productImages.js';
 import { copyFor } from '../data/productCopy.js';
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_OPTIONS, formatPrice } from '../lib/money.js';
+import { isBackend } from '../lib/config.js';
+import { orderingOpen, useSite } from '../data/site.js';
 import { needsSize, useStore, validateOptions, variantStatus } from '../store.js';
 import { useScrollLock } from '../lib/scrollLock.js';
 import { useDialogFocus } from '../lib/useDialogFocus.js';
@@ -57,8 +59,22 @@ function Gallery({ product }) {
   </div>;
 }
 
+// Delivery information: the owner's configured methods (backend) or the labelled demo options.
+function ShippingInfo() {
+  const methods = useSite((state) => state.shippingMethods);
+  if (!isBackend) {
+    return <><p>Sample delivery options for this demo: {SHIPPING_OPTIONS.map((option) => `${option.label} (${formatPrice(option.price)})`).join(', ')}. Standard delivery is free from {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p><p>Delivery times and return terms have not been confirmed. Read the <Link to="/pages/shipping">shipping</Link> and <Link to="/pages/returns">returns</Link> pages.</p></>;
+  }
+  const listed = methods.filter((method) => method.rates.length > 0);
+  return <>
+    {listed.length ? <ul>{listed.map((method) => <li key={method.code}><strong>{method.label}</strong>{method.estimate_text ? `: ${method.estimate_text}` : ''}</li>)}</ul> : <p>Delivery options have not been published yet.</p>}
+    <p>Read the <Link to="/shipping">shipping policy</Link> and the <Link to="/refund-policy">returns policy</Link>.</p>
+  </>;
+}
+
 export default function ProductPage() {
   const { slug } = useParams();
+  useSite((state) => state.settings);
   const navigate = useNavigate();
   const product = productBySlug(slug);
   const [size, setSize] = useState('');
@@ -82,8 +98,9 @@ export default function ProductPage() {
 
   if (!product) return <NotFoundPage what="product" />;
   const isZip = product.category === 'Quarter-Zips';
-  const related = products.filter((item) => item.id !== product.id && item.category === product.category).slice(0, 4);
-  const colourProducts = products.filter((item) => item.category === 'Quarter-Zips');
+  const related = getProducts().filter((item) => item.id !== product.id && item.category === product.category).slice(0, 4);
+  const colourProducts = product.groupKey ? getProducts().filter((item) => item.groupKey === product.groupKey) : getProducts().filter((item) => item.category === 'Quarter-Zips');
+  const soldOutEverywhere = product.soldOut || (!needsSize(product) && variantStatus(product, product.sizes[0]) === 'sold-out');
   const options = { size, color: product.colors[0], quantity };
 
   const check = () => {
@@ -103,7 +120,7 @@ export default function ProductPage() {
         <div className="ov-product-title"><h1>{product.name}</h1><strong className="ov-price">{formatPrice(product.price)}</strong></div>
         <p className="ov-product-lede">{copyFor(product)[0]}</p>
         {isZip && <div className="ov-detail-group"><div className="ov-detail-heading"><strong>Colour</strong><span>{product.colors[0]}</span></div>
-          <div className="ov-detail-colors" role="group" aria-label="Colour">{colourProducts.map((entry) => <button type="button" key={entry.id} aria-label={entry.colors[0]} aria-pressed={entry.id === product.id} className={entry.id === product.id ? 'is-selected' : ''} onClick={() => entry.id !== product.id && navigate(`/product/${entry.slug}`)}><i className={`ov-swatch ov-swatch-${entry.colors[0].toLowerCase()}`} /></button>)}</div></div>}
+          <div className="ov-detail-colors" role="group" aria-label="Colour">{colourProducts.map((entry) => <button type="button" key={entry.id} aria-label={entry.colors[0]} aria-pressed={entry.id === product.id} className={entry.id === product.id ? 'is-selected' : ''} onClick={() => entry.id !== product.id && navigate(`/product/${entry.slug}`)}><i className={`ov-swatch ov-swatch-${entry.colors[0].toLowerCase()}`} style={entry.artColor ? { background: entry.artColor } : undefined} /></button>)}</div></div>}
         {needsSize(product) && <div className={`ov-detail-group ${error && !size ? 'has-error' : ''}`}>
           <div className="ov-detail-heading"><strong id="ov-size-label">Size</strong><span>{size || 'Select a size'}</span></div>
           <div className="ov-detail-sizes" id="ov-size-group" tabIndex={-1} role="group" aria-labelledby="ov-size-label" aria-describedby={error ? 'ov-option-error' : undefined}>
@@ -114,24 +131,25 @@ export default function ProductPage() {
         {error && <p className="ov-form-error" id="ov-option-error" role="alert">{error}</p>}
         <div className="ov-qty-block"><span className="ov-qty-label" id="ov-qty-label">Quantity</span><QuantityControl value={quantity} label="Quantity" onChange={setQuantity} /></div>
         <div className="ov-purchase" ref={actionsRef}>
-          <button type="button" className="ov-button ov-button-dark" onClick={onAdd}>Add to cart</button>
-          <button type="button" className="ov-button ov-button-light" onClick={onBuyNow}>Buy now</button>
+          <button type="button" className="ov-button ov-button-dark" onClick={onAdd} disabled={soldOutEverywhere}>{soldOutEverywhere ? 'Sold out' : 'Add to cart'}</button>
+          <button type="button" className="ov-button ov-button-light" onClick={onBuyNow} disabled={soldOutEverywhere}>Buy now</button>
         </div>
-        <p className="ov-note">Demo store: prices are samples and orders are not open yet.</p>
+        {!isBackend && <p className="ov-note">Demo store: prices are samples and orders are not open yet.</p>}
+        {isBackend && !orderingOpen() && <p className="ov-note">Orders are not open yet.</p>}
         <Accordion openFirst items={[
-          { title: 'Description', body: <>{copyFor(product).slice(1).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}<p>{product.listingStatus}</p></> },
+          { title: 'Description', body: <>{copyFor(product).slice(1).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}{product.listingStatus && <p>{product.listingStatus}</p>}</> },
           { title: 'Specifications', body: <dl className="ov-spec">
             <div><dt>Brand</dt><dd>{product.brand}</dd></div><div><dt>Category</dt><dd>{isZip ? 'Quarter zip' : 'Watch'}</dd></div><div><dt>Style</dt><dd>{product.style}</dd></div><div><dt>Colour</dt><dd>{product.colors[0]}</dd></div>
             {isZip && <div><dt>Sizes</dt><dd>{product.sizes.join(', ')}</dd></div>}
             <div><dt>Materials</dt><dd>Not published yet</dd></div></dl> },
-          { title: 'Shipping and returns', body: <><p>Sample delivery options for this demo: {SHIPPING_OPTIONS.map((option) => `${option.label} (${formatPrice(option.price)})`).join(', ')}. Standard delivery is free from {formatPrice(FREE_SHIPPING_THRESHOLD)}.</p><p>Delivery times and return terms have not been confirmed. Read the <Link to="/pages/shipping">shipping</Link> and <Link to="/pages/returns">returns</Link> pages.</p></> },
+          { title: 'Shipping and returns', body: <ShippingInfo /> },
         ]} />
       </div>
     </div>
     {related.length > 0 && <section className="ov-related" aria-labelledby="ov-related-title"><h2 id="ov-related-title">More like this</h2><div className="ov-product-grid">{related.map((item) => <ProductCard product={item} key={item.id} />)}</div></section>}
     <div className={`ov-sticky-buy ${stickyVisible ? 'is-visible' : ''}`} aria-hidden={!stickyVisible}>
       <div><strong>{product.name}</strong><span>{formatPrice(product.price)}</span></div>
-      <button type="button" className="ov-button ov-button-dark" tabIndex={stickyVisible ? 0 : -1} onClick={onAdd}>Add to cart</button>
+      <button type="button" className="ov-button ov-button-dark" tabIndex={stickyVisible ? 0 : -1} onClick={onAdd} disabled={soldOutEverywhere}>{soldOutEverywhere ? 'Sold out' : 'Add to cart'}</button>
     </div>
   </main>;
 }

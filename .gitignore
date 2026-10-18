@@ -58,3 +58,6 @@ supabase/functions/.env.*
 *.sqlite3
 backups/
 exports/
+
+# generated reports
+scripts/out/

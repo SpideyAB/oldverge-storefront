@@ -36,6 +36,11 @@ const ZIP_COLOUR_NOTES = {
 };
 
 export const copyFor = (product) => {
+  // Backend products: the owner's own description (paragraphs separated by a blank line).
+  if (product.dbId) {
+    const paragraphs = String(product.description || '').split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
+    return paragraphs.length ? paragraphs : [''];
+  }
   if (PRODUCT_COPY[product.slug]) return PRODUCT_COPY[product.slug];
   if (product.category === 'Quarter-Zips') {
     const colour = product.colors[0];

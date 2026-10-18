@@ -6,12 +6,15 @@ import { imageSize } from '../data/imageSizes.js';
 import { cartCount, resolveLines, useStore } from '../store.js';
 import { useScrollLock } from '../lib/scrollLock.js';
 import { useDialogFocus } from '../lib/useDialogFocus.js';
+import { isBackend } from '../lib/config.js';
+import { useCatalog } from '../data/catalog.js';
+import { orderingOpen, useSite } from '../data/site.js';
 import { QuantityControl } from './ui.jsx';
 
 export const optionText = (line) => [line.color, line.product.sizes.length > 1 ? `Size ${line.size}` : ''].filter(Boolean).join(' · ');
 
 export function ShippingProgress({ subtotal }) {
-  if (subtotal <= 0) return null;
+  if (isBackend || subtotal <= 0) return null;       // the free-delivery bar is a demo rule; real rates are quoted at checkout
   const remaining = amountToFreeShipping(subtotal);
   const percent = Math.min(100, Math.floor((subtotal / FREE_SHIPPING_THRESHOLD) * 100));
   return <div className="ov-ship-progress">
@@ -29,7 +32,7 @@ export function CartLine({ line, onNavigate, showBuyNow = false }) {
   const { product } = line;
   return <li className="ov-line">
     <Link to={`/product/${product.slug}`} className="ov-line-image" onClick={onNavigate} tabIndex={-1} aria-hidden="true">
-      <img src={product.image} alt="" {...imageSize(product.image)} loading="lazy" decoding="async" />
+      {product.image && <img src={product.image} alt="" {...imageSize(product.image)} loading="lazy" decoding="async" />}
     </Link>
     <div className="ov-line-info">
       <Link to={`/product/${product.slug}`} className="ov-line-name" onClick={onNavigate}>{product.name}</Link>
@@ -45,7 +48,21 @@ export function CartLine({ line, onNavigate, showBuyNow = false }) {
   </li>;
 }
 
+/** Why the bag changed (items removed after checking the current catalogue) and catalogue loading/error states. */
+export function CartStatus() {
+  const notice = useStore((state) => state.cartNotice);
+  const dismiss = useStore((state) => state.dismissCartNotice);
+  const status = useCatalog((state) => state.status);
+  const load = useCatalog((state) => state.load);
+  return <>
+    {notice && <p className="ov-cart-notice" role="status">{notice} <button type="button" className="ov-link-button" onClick={dismiss}>Dismiss</button></p>}
+    {isBackend && status === 'error' && <p className="ov-form-error" role="alert">We could not load current prices and availability. <button type="button" className="ov-link-button" onClick={() => load({ force: true })}>Try again</button></p>}
+  </>;
+}
+
 export default function CartDrawer() {
+  useSite((state) => state.settings);
+  const catalogStatus = useCatalog((state) => state.status);
   const open = useStore((state) => state.cartOpen);
   const close = useStore((state) => state.closeCart);
   const cart = useStore((state) => state.cart);
@@ -58,14 +75,17 @@ export default function CartDrawer() {
   return <div className={`overlay drawer-overlay ${reduced ? 'is-static' : ''}`} onMouseDown={(event) => event.target === event.currentTarget && close()}>
     <aside className="ov-drawer" data-lenis-prevent role="dialog" aria-modal="true" aria-labelledby="ov-cart-title">
       <div className="ov-drawer-head"><h2 id="ov-cart-title">Your cart <span>({cartCount(lines)})</span></h2><button type="button" className="ov-icon-close" aria-label="Close cart" onClick={close}><X size={22} aria-hidden="true" /></button></div>
-      {lines.length ? <>
+      <CartStatus />
+      {isBackend && catalogStatus !== 'ready' && catalogStatus !== 'error' ? <p className="ov-note" role="status">Loading your bag…</p> : lines.length ? <>
         <ShippingProgress subtotal={subtotal} />
         <ul className="ov-lines">{lines.map((line) => <CartLine key={line.key} line={line} onNavigate={close} />)}</ul>
         <div className="ov-drawer-foot">
           <div className="ov-row"><span>Subtotal</span><strong>{formatPrice(subtotal)}</strong></div>
-          <p className="ov-note">Delivery is added at checkout. Taxes are not calculated in this demo.</p>
+          <p className="ov-note">{isBackend ? 'Delivery is added at checkout. Taxes are not calculated.' : 'Delivery is added at checkout. Taxes are not calculated in this demo.'}</p>
           <Link to="/cart" className="ov-button ov-button-light" onClick={close}>View cart</Link>
-          <Link to="/checkout" className="ov-button ov-button-dark" onClick={close}>Checkout</Link>
+          {isBackend && !orderingOpen()
+            ? <button type="button" className="ov-button ov-button-dark" disabled>Orders are not open yet</button>
+            : <Link to="/checkout" className="ov-button ov-button-dark" onClick={close}>Checkout</Link>}
         </div>
       </> : <div className="ov-drawer-empty">
         <ShoppingBag size={36} aria-hidden="true" />

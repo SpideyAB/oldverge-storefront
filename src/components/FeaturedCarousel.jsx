@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
 import { useReducedMotion } from 'framer-motion';
 import Reveal from './Reveal.jsx';
-import { productBySlug } from '../data/products.js';
+import { useFeatured } from '../data/featured.js';
 import { formatPrice } from '../lib/money.js';
 import { originalPhoto } from '../data/productImages.js';
 
@@ -22,10 +22,8 @@ import { originalPhoto } from '../data/productImages.js';
  * never opens a product.
  */
 
-// Order alternates clothing and watches and keeps repeated watch photos apart.
+// The curated order lives in the `home.featured` store setting (see data/featured.js).
 // The home carousel shows the original photographs; the background-removed cut-outs are for the shop and product pages.
-const SLUGS = ['quarter-zip-black', 'casio-mtp', 'quarter-zip-beige', 'seiko-5', 'quarter-zip-navy', 'timex-weekender', 'quarter-zip-olive', 'citizen-eco-drive', 'casio-a168', 'orient-bambino'];
-const items = SLUGS.map(productBySlug).filter(Boolean);
 
 const SPEED = 34;      // px per second, calm
 const DRAG_SLOP = 6;   // px before a press counts as a drag
@@ -38,7 +36,7 @@ function Card({ product, hidden, index, twinFocus }) {
     <li className={`ov-fp-item ${twinFocus ? 'is-twin-focus' : ''}`} data-i={index} aria-hidden={hidden || undefined}>
       <Link to={`/product/${product.slug}`} className="ov-fp-card" draggable={false} tabIndex={hidden ? -1 : undefined}>
         <span className={`ov-fp-media ${product.type === 'watch' ? 'is-watch' : 'is-zip'}`}>
-          <img src={originalPhoto(product.image)} alt={hidden ? '' : `${product.name}`} loading="lazy" draggable={false} />
+          <img src={product.photo || originalPhoto(product.image)} alt={hidden ? '' : `${product.name}`} loading="lazy" draggable={false} />
           {hover && <img className="ov-fp-hover" src={hover} alt="" loading="lazy" draggable={false} />}
         </span>
         <span className="ov-fp-info">
@@ -51,6 +49,7 @@ function Card({ product, hidden, index, twinFocus }) {
 }
 
 export default function FeaturedCarousel() {
+  const items = useFeatured();
   const reduced = useReducedMotion();
   const viewportRef = useRef(null);
   const trackRef = useRef(null);
@@ -84,7 +83,7 @@ export default function FeaturedCarousel() {
       setCopies((current) => (current === needed ? current : needed));
       apply();
     }
-  }, [reduced]);
+  }, [reduced, items.length]);
 
   useLayoutEffect(() => {
     measure();
